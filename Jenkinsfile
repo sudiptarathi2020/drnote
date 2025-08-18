@@ -19,16 +19,31 @@ pipeline {
         }
         stage('Prepare .env File') {
             steps {
-                withCredentials([file(credentialsId: 'environment-file', variable: 'ENV_FILE_PATH')]) {
+               // First, ensure workspace is writable
+                sh "chmod -R 755 ${WORKSPACE}"
+                
+                // Create a deploy directory inside the workspace
+                sh "mkdir -p ${WORKSPACE}/deploy_files"
+                
+                // Copy and prepare files with appropriate permissions
+                withCredentials([
+                    file(credentialsId: 'environment-file', variable: 'ENV_FILE_PATH'),
+                    string(credentialsId: 'dockerhub-username', variable: 'DOCKER_USER')
+                ]) {
                     script {
                         def GIT_COMMIT = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
-                        sh "mkdir -p /tmp/drnote-deploy"
+                        
                         sh """
-        
-                        cp \$ENV_FILE_PATH /tmp/drnote-deploy/.env &&
-                        echo "BACKEND_IMAGE=${DOCKERHUB_USERNAME}/backend:${GIT_COMMIT}" >> /tmp/drnote-deploy/.env &&
-                        echo "FRONTEND_IMAGE=${DOCKERHUB_USERNAME}/frontend:${GIT_COMMIT}" >> /tmp/drnote-deploy/.env &&
-                        cat .env
+                        cp "\$ENV_FILE_PATH" "${WORKSPACE}/deploy_files/.env"
+                        chmod 644 "${WORKSPACE}/deploy_files/.env"
+                        """
+                        
+                        // Append Docker image info to env file without string interpolation
+                        sh """
+                        echo "BACKEND_IMAGE=\$DOCKER_USER/backend:${GIT_COMMIT}" >> "${WORKSPACE}/deploy_files/.env"
+                        echo "FRONTEND_IMAGE=\$DOCKER_USER/frontend:${GIT_COMMIT}" >> "${WORKSPACE}/deploy_files/.env"
+                        cp "${WORKSPACE}/docker-compose.yml" "${WORKSPACE}/deploy_files/"
+                        cat "${WORKSPACE}/deploy_files/.env"
                         """
                     }
                 }
@@ -38,7 +53,7 @@ pipeline {
             steps {
                 sshagent(['deployment-server-key']) {
                     sh """
-                    scp -o StrictHostKeyChecking=no ${WORKSPACE}/docker-compose.yml /tmp/drnote-deploy/.env azureuser@${DEPLOYMENT_SERVER}:~/drnote/ &&
+                    scp -o StrictHostKeyChecking=no "${WORKSPACE}/deploy_files/docker-compose.yml" "${WORKSPACE}/deploy_files/.env" azureuser@${DEPLOYMENT_SERVER}:~/drnote/ &&
                     ssh -o StrictHostKeyChecking=no azureuser@${DEPLOYMENT_SERVER} '
                         set -x &&
                         mkdir -p ~/drnote &&
@@ -49,6 +64,14 @@ pipeline {
                         docker compose up -d &&
                         docker system prune -af
                         '"""
+                }
+            }
+        }
+        stage('Post-Deployment Cleanup') {
+            steps {
+                script {
+                    // Clean up workspace after deployment
+                    sh "rm -rf ${WORKSPACE}/deploy_files"
                 }
             }
         }
