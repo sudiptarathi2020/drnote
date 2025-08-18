@@ -1,11 +1,60 @@
 pipeline {
-  agent any
-  stages {
-    stage('Checkout Code') {
-      steps {
-        git(url: 'https://github.com/sudiptarathi2020/drnote', branch: 'main')
-      }
+    agent any
+
+    environment {
+        DOCKERHUB = credentials('dockerhub-credentials')
+        DOCKER_BUILDER_IP = credentials('docker-builder-ip')
+        DEPLOYMENT_SERVER = credentials('deployment-server-ip')
+        DOCKERHUB_USERNAME = credentials('dockerhub-username')
+        ENV_FILE = credentials('environment-file')
     }
 
-  }
+    parameters {
+        booleanParam(name: 'RUN_MIGRATIONS', defaultValue: true, description: 'Run django database migrations')
+    }
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git(url: 'https://github.com/sudiptarathi2020/drnote', branch: 'main')
+            }
+        }
+        stage('Build and Push Docker Image') {
+            steps{
+                sshagent(['builder-server-key']){
+                    sh ''' ssh -o StrictHostKeyChecking=no azureuser@${DOCKER_BUILDER_IP} \'
+                        rm -rf ~/project &&
+                        mkdir -p ~/project &&
+                        git clone https://github.com/sudiptarathi2020/drnote.git ~/project  &&
+                        echo \\${DOCKERHUB_PSW} | docker login -u \\${DOCKERHUB_USR} --password-stdin &&
+                        docker build -t ${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER} -f backend/Dockerfile backend &&
+                        docker push ${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER} &&
+                        docker build -t ${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER} -f frontend/Dockerfile frontend &&
+                        docker push ${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER} &&
+                        docker system prune -af"
+                        \''''
+                }
+            }
+        }
+        stage('Deploy to Server') {
+            steps {
+                sshagent(['deployment-server-key']) {
+                    sh '''ssh -o StrictHostKeyChecking=no azureuser@${DEPLOYMENT_SERVER} \'
+                        mkdir -p ~/drnote &&
+                        cd ~/drnote &&
+                        echo "${ENV_FILE}" > .env &&
+                        echo "BACKEND_IMAGE=${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER}" >> .env &&
+                        echo "FRONTEND_IMAGE=${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER}" >> .env &&
+                        scp -o StrictHostKeyChecking=no azureuser@${DOCKER_BUILDER_IP}:~/project/docker-compose.yml . &&
+                        docker-compose pull &&
+                        docker-compose down &&
+                        docker-compose up -d &&
+                        if [ "${RUN_MIGRATIONS}" = "true" ]; then
+                            docker-compose exec backend python manage.py migrate;
+                        fi
+                        docker system prune -af
+                        \''''
+                }
+            }
+        }
+    }
 }

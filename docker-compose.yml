@@ -12,11 +12,9 @@ services:
     env_file:
       - .env
 
-  django-web:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: django-docker
+  backend:
+    image: ${BACKEND_IMAGE}
+    container_name: backend
     ports:
       - "8000:8000"
     depends_on:
@@ -31,10 +29,8 @@ services:
       - .env
 
   frontend:
-    build: 
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: frontend-docker
+    image: ${FRONTEND_IMAGE}
+    container_name: frontend
     ports:
       - "3000:80"
     depends_on:
