@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         DOCKERHUB = credentials('dockerhub-credentials')
-        DOCKER_BUILDER_IP = credentials('docker-builder-ip')
         DEPLOYMENT_SERVER = credentials('deployment-server-ip')
         DOCKERHUB_USERNAME = credentials('dockerhub-username')
         ENV_FILE = credentials('environment-file')
@@ -18,35 +17,19 @@ pipeline {
                 git(url: 'https://github.com/sudiptarathi2020/drnote', branch: 'main')
             }
         }
-        stage('Build and Push Docker Image') {
-            steps{
-                sshagent(['builder-server-key']){
-                    sh """ ssh -o StrictHostKeyChecking=no azureuser@${DOCKER_BUILDER_IP} '
-                        rm -rf ~/project &&
-                        mkdir -p ~/project &&
-                        git clone https://github.com/sudiptarathi2020/drnote.git ~/project  &&
-                        cd ~/project &&
-                        echo "${ENV_FILE}" > .env &&
-                        echo \\${DOCKERHUB_PSW} | docker login -u \\${DOCKERHUB_USR} --password-stdin &&
-                        docker build -t ${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER} -f backend/Dockerfile backend &&
-                        docker push ${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER} &&
-                        docker build -t ${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER} -f frontend/Dockerfile frontend &&
-                        docker push ${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER} &&
-                        docker system prune -af
-                        '"""
-                }
-            }
-        }
         stage('Prepare .env File') {
             steps {
                 withCredentials([file(credentialsId: 'environment-file', variable: 'ENV_FILE_PATH')]) {
-                    sh """
-                    chmod -R u+w ${WORKSPACE} &&
-                    cp \$ENV_FILE_PATH ${WORKSPACE}/.env &&
-                    echo "BACKEND_IMAGE=${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER}" >> ${WORKSPACE}/.env &&
-                    echo "FRONTEND_IMAGE=${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER}" >> ${WORKSPACE}/.env &&
-                    cat .env
-                    """
+                    script {
+                        def GIT_COMMIT = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
+                        sh """
+                        chmod -R u+w ${WORKSPACE} &&
+                        cp \$ENV_FILE_PATH ${WORKSPACE}/.env &&
+                        echo "BACKEND_IMAGE=${DOCKERHUB_USERNAME}/backend:${GIT_COMMIT}" >> ${WORKSPACE}/.env &&
+                        echo "FRONTEND_IMAGE=${DOCKERHUB_USERNAME}/frontend:${GIT_COMMIT}" >> ${WORKSPACE}/.env &&
+                        cat .env
+                        """
+                    }
                 }
             }
         }
@@ -61,7 +44,7 @@ pipeline {
                         cd ~/drnote &&
                         docker compose pull &&
                         docker compose down &&
-                        ${params.RUN_MIGRATIONS ? 'docker-compose run --rm backend python manage.py migrate' : 'echo "Skipping migrations"'} &&
+                        ${params.RUN_MIGRATIONS ? 'docker compose run --rm backend python manage.py migrate' : 'echo "Skipping migrations"'} &&
                         docker compose up -d &&
                         docker system prune -af
                         '"""
