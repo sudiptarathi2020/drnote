@@ -39,7 +39,7 @@ pipeline {
         }
         stage('Prepare .env File') {
             steps {
-                withCredentials([file(credentialsId: 'env-file', variable: 'ENV_FILE_PATH')]) {
+                withCredentials([file(credentialsId: 'environment-file', variable: 'ENV_FILE_PATH')]) {
                     sh """
                     cp \$ENV_FILE_PATH .env &&
                     echo "BACKEND_IMAGE=${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER}" >> .env &&
