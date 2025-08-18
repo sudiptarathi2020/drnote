@@ -49,10 +49,10 @@ pipeline {
                         echo "${ENV_FILE}" > .env &&
                         echo "BACKEND_IMAGE=${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER}" >> .env &&
                         echo "FRONTEND_IMAGE=${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER}" >> .env &&
-                        docker-compose pull &&
-                        docker-compose down &&
+                        docker compose pull &&
+                        docker compose down &&
                         ${params.RUN_MIGRATIONS ? 'docker-compose run --rm backend python manage.py migrate' : 'echo "Skipping migrations"'} &&
-                        docker-compose up -d &&
+                        docker compose up -d &&
                         docker system prune -af
                         '"""
                 }
