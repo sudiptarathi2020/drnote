@@ -41,9 +41,10 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'environment-file', variable: 'ENV_FILE_PATH')]) {
                     sh """
-                    cp \$ENV_FILE_PATH .env &&
-                    echo "BACKEND_IMAGE=${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER}" >> .env &&
-                    echo "FRONTEND_IMAGE=${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER}" >> .env &&
+                    chmod -R u+w ${WORKSPACE} &&
+                    cp \$ENV_FILE_PATH ${WORKSPACE}/.env &&
+                    echo "BACKEND_IMAGE=${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER}" >> ${WORKSPACE}/.env &&
+                    echo "FRONTEND_IMAGE=${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER}" >> ${WORKSPACE}/.env &&
                     cat .env
                     """
                 }
