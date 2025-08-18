@@ -27,7 +27,8 @@ jobs:
       - name: Set Image Tag
         id: vars
         run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
-
+      - name: Save Tag to file
+        run: echo "${TAG}" > docker_tag.txt
       - name: Build & Push Backend
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/backend:${TAG} -f backend/Dockerfile backend
@@ -42,6 +43,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: docker-tag
-          path: |
-            docker_tag.txt
-            run: echo "${TAG}" > docker_tag.txt
+          path: docker_tag.txt
