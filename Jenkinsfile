@@ -37,18 +37,27 @@ pipeline {
                 }
             }
         }
+        stage('Prepare .env File') {
+            steps {
+                withCredentials([file(credentialsId: 'env-file', variable: 'ENV_FILE_PATH')]) {
+                    sh """
+                    cp \$ENV_FILE_PATH .env &&
+                    echo "BACKEND_IMAGE=${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER}" >> .env &&
+                    echo "FRONTEND_IMAGE=${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER}" >> .env &&
+                    cat .env
+                    """
+                }
+            }
+        }
         stage('Deploy to Server') {
             steps {
                 sshagent(['deployment-server-key']) {
                     sh """
-                    scp -o StrictHostKeyChecking=no ${WORKSPACE}/docker-compose.yml azureuser@${DEPLOYMENT_SERVER}:~/drnote/docker-compose.yml &&
+                    scp -o StrictHostKeyChecking=no ${WORKSPACE}/docker-compose.yml .env azureuser@${DEPLOYMENT_SERVER}:~/drnote/ &&
                     ssh -o StrictHostKeyChecking=no azureuser@${DEPLOYMENT_SERVER} '
                         set -x &&
                         mkdir -p ~/drnote &&
                         cd ~/drnote &&
-                        echo "${ENV_FILE}" > .env &&
-                        echo "BACKEND_IMAGE=${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER}" >> .env &&
-                        echo "FRONTEND_IMAGE=${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER}" >> .env &&
                         docker compose pull &&
                         docker compose down &&
                         ${params.RUN_MIGRATIONS ? 'docker-compose run --rm backend python manage.py migrate' : 'echo "Skipping migrations"'} &&
