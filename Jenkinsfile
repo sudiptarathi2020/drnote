@@ -21,7 +21,7 @@ pipeline {
         stage('Build and Push Docker Image') {
             steps{
                 sshagent(['builder-server-key']){
-                    sh ''' ssh -o StrictHostKeyChecking=no azureuser@${DOCKER_BUILDER_IP} \'
+                    sh """ ssh -o StrictHostKeyChecking=no azureuser@${DOCKER_BUILDER_IP} '
                         rm -rf ~/project &&
                         mkdir -p ~/project &&
                         git clone https://github.com/sudiptarathi2020/drnote.git ~/project  &&
@@ -30,15 +30,15 @@ pipeline {
                         docker push ${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER} &&
                         docker build -t ${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER} -f frontend/Dockerfile frontend &&
                         docker push ${DOCKERHUB_USERNAME}/frontend:${BUILD_NUMBER} &&
-                        docker system prune -af"
-                        \''''
+                        docker system prune -af
+                        '"""
                 }
             }
         }
         stage('Deploy to Server') {
             steps {
                 sshagent(['deployment-server-key']) {
-                    sh '''ssh -o StrictHostKeyChecking=no azureuser@${DEPLOYMENT_SERVER} \'
+                    sh """ ssh -o StrictHostKeyChecking=no azureuser@${DEPLOYMENT_SERVER} '
                         mkdir -p ~/drnote &&
                         cd ~/drnote &&
                         echo "${ENV_FILE}" > .env &&
@@ -47,12 +47,10 @@ pipeline {
                         scp -o StrictHostKeyChecking=no azureuser@${DOCKER_BUILDER_IP}:~/project/docker-compose.yml . &&
                         docker-compose pull &&
                         docker-compose down &&
+                        ${params.RUN_MIGRATIONS ? 'docker-compose run --rm backend python manage.py migrate' : 'echo "Skipping migrations"'} &&
                         docker-compose up -d &&
-                        if [ "${RUN_MIGRATIONS}" = "true" ]; then
-                            docker-compose exec backend python manage.py migrate;
-                        fi
                         docker system prune -af
-                        \''''
+                        '"""
                 }
             }
         }
