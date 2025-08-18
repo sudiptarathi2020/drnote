@@ -25,6 +25,8 @@ pipeline {
                         rm -rf ~/project &&
                         mkdir -p ~/project &&
                         git clone https://github.com/sudiptarathi2020/drnote.git ~/project  &&
+                        cd ~/project &&
+                        echo "${ENV_FILE}" > .env &&
                         echo \\${DOCKERHUB_PSW} | docker login -u \\${DOCKERHUB_USR} --password-stdin &&
                         docker build -t ${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER} -f backend/Dockerfile backend &&
                         docker push ${DOCKERHUB_USERNAME}/backend:${BUILD_NUMBER} &&
