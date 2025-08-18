@@ -41,7 +41,7 @@ pipeline {
             steps {
                 sshagent(['deployment-server-key']) {
                     sh """
-                    scp -o StrictHostKeyChecking=no ${WORKSPACE}/drnote/docker-compose.yml azureuser@${DEPLOYMENT_SERVER}:~/drnote/docker-compose.yml &&
+                    scp -o StrictHostKeyChecking=no ${WORKSPACE}/docker-compose.yml azureuser@${DEPLOYMENT_SERVER}:~/drnote/docker-compose.yml &&
                     ssh -o StrictHostKeyChecking=no azureuser@${DEPLOYMENT_SERVER} '
                         set -x &&
                         mkdir -p ~/drnote &&
