@@ -40,8 +40,8 @@ pipeline {
                         
                         // Append Docker image info to env file without string interpolation
                         sh """
-                        echo "BACKEND_IMAGE=\$DOCKER_USER/backend:${DOCKER_TAG}" >> "${WORKSPACE}/deploy_files/.env"
-                        echo "FRONTEND_IMAGE=\$DOCKER_USER/frontend:${DOCKER_TAG}" >> "${WORKSPACE}/deploy_files/.env"
+                        echo "BACKEND_IMAGE=\$DOCKER_USER/backend:${params.DOCKER_TAG}" >> "${WORKSPACE}/deploy_files/.env"
+                        echo "FRONTEND_IMAGE=\$DOCKER_USER/frontend:${params.DOCKER_TAG}" >> "${WORKSPACE}/deploy_files/.env"
                         cp "${WORKSPACE}/docker-compose.yml" "${WORKSPACE}/deploy_files/"
                         cat "${WORKSPACE}/deploy_files/.env"
                         """
