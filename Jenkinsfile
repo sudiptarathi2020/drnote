@@ -10,6 +10,7 @@ pipeline {
 
     parameters {
         booleanParam(name: 'RUN_MIGRATIONS', defaultValue: true, description: 'Run django database migrations')
+        string(name: 'DOCKER_TAG', defaultValue: 'latest', description: 'Docker image tag to deploy')
     }
     stages {
         stage('Checkout Code') {
@@ -17,6 +18,7 @@ pipeline {
                 git(url: 'https://github.com/sudiptarathi2020/drnote', branch: 'main')
             }
         }
+
         stage('Prepare .env File') {
             steps {
                // First, ensure workspace is writable
@@ -31,8 +33,6 @@ pipeline {
                     string(credentialsId: 'dockerhub-username', variable: 'DOCKER_USER')
                 ]) {
                     script {
-                        def GIT_COMMIT = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
-                        
                         sh """
                         cp "\$ENV_FILE_PATH" "${WORKSPACE}/deploy_files/.env"
                         chmod 644 "${WORKSPACE}/deploy_files/.env"
@@ -40,8 +40,8 @@ pipeline {
                         
                         // Append Docker image info to env file without string interpolation
                         sh """
-                        echo "BACKEND_IMAGE=\$DOCKER_USER/backend:${GIT_COMMIT}" >> "${WORKSPACE}/deploy_files/.env"
-                        echo "FRONTEND_IMAGE=\$DOCKER_USER/frontend:${GIT_COMMIT}" >> "${WORKSPACE}/deploy_files/.env"
+                        echo "BACKEND_IMAGE=\$DOCKER_USER/backend:${DOCKER_TAG}" >> "${WORKSPACE}/deploy_files/.env"
+                        echo "FRONTEND_IMAGE=\$DOCKER_USER/frontend:${DOCKER_TAG}" >> "${WORKSPACE}/deploy_files/.env"
                         cp "${WORKSPACE}/docker-compose.yml" "${WORKSPACE}/deploy_files/"
                         cat "${WORKSPACE}/deploy_files/.env"
                         """

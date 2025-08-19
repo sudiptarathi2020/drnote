@@ -2,18 +2,25 @@ name: Build and Push Docker Images
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
     types: [labeled, opened, synchronize, reopened]
+  push:
+    branches: [main]
+
 
 jobs:
   build:
-    if: contains(github.event.pull_request.labels.*.name, 'build')
+    if: >
+      (github.event_name == 'push') ||
+      (github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'build'))
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -23,12 +30,22 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      
+
       - name: Set Image Tag
         id: vars
-        run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+          RAW_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+          RAW_SHA="${GITHUB_SHA}"
+          fi
+          TAG="${RAW_SHA:0:7}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "Computed TAG=$TAG from RAW_SHA=$RAW_SHA"
+
       - name: Save Tag to file
         run: echo "${TAG}" > docker_tag.txt
+
       - name: Build & Push Backend
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/backend:${TAG} -f backend/Dockerfile backend
@@ -38,6 +55,14 @@ jobs:
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${TAG} -f frontend/Dockerfile frontend
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${TAG}
+
+      - name: Tag latest on main
+        if: github.event_name == 'push'
+        run: |
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/backend:${TAG} ${{secrets.DOCKERHUB_USERNAME}}/backend:latest
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${TAG} ${{secrets.DOCKERHUB_USERNAME}}/frontend:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/fronend:latest
 
       - name: Upload Artifact (env file)
         uses: actions/upload-artifact@v4
