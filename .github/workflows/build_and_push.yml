@@ -55,7 +55,6 @@ jobs:
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${TAG}
 
       - name: Tag latest on main
-        if: github.event_name == 'push'
         run: |
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/backend:${TAG} ${{secrets.DOCKERHUB_USERNAME}}/backend:latest
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${TAG} ${{secrets.DOCKERHUB_USERNAME}}/frontend:latest
