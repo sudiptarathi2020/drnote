@@ -9,7 +9,6 @@ pipeline {
     }
 
     parameters {
-        booleanParam(name: 'RUN_MIGRATIONS', defaultValue: true, description: 'Run django database migrations')
         string(name: 'DOCKER_TAG', defaultValue: 'latest', description: 'Docker image tag to deploy')
     }
     stages {
@@ -60,7 +59,6 @@ pipeline {
                         cd ~/drnote &&
                         docker compose pull &&
                         docker compose down &&
-                        ${params.RUN_MIGRATIONS ? 'docker compose run --rm backend python manage.py migrate' : 'echo "Skipping migrations"'} &&
                         docker compose up -d &&
                         docker system prune -af
                         '"""
