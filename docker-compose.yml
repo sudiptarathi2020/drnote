@@ -11,6 +11,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
     env_file:
       - .env
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DATABASE_USERNAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   backend:
     image: ${BACKEND_IMAGE}
@@ -18,7 +24,8 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG}
@@ -27,6 +34,8 @@ services:
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
     env_file:
       - .env
+    command: >
+      sh -c "python manage.py migrate"
 
   frontend:
     image: ${FRONTEND_IMAGE}
@@ -36,7 +45,7 @@ services:
     depends_on:
       - backend
     environment:
-      REACT_APP_API_URL: ${REACT_APP_API_URL}
+      VITE_API_URL: ${VITE_API_URL}
     env_file:
       - .env
 volumes:
