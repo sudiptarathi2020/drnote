@@ -4,8 +4,6 @@ on:
   pull_request:
     branches: [main]
     types: [labeled, opened, synchronize, reopened]
-  push:
-    branches: [main]
 
 
 jobs:
@@ -43,29 +41,17 @@ jobs:
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "Computed TAG=$TAG from RAW_SHA=$RAW_SHA"
 
-      - name: Save Tag to file
-        run: echo "${TAG}" > docker_tag.txt
-
       - name: Build & Push Backend
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/backend:${TAG} -f backend/Dockerfile backend
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend:${TAG}
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/backend:${TAG} ${{secrets.DOCKERHUB_USERNAME}}/backend:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
 
       - name: Build & Push Frontend
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${TAG} -f frontend/Dockerfile frontend
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${TAG}
-
-      - name: Tag latest on main
-        if: github.event_name == 'push'
-        run: |
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/backend:${TAG} ${{secrets.DOCKERHUB_USERNAME}}/backend:latest
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${TAG} ${{secrets.DOCKERHUB_USERNAME}}/frontend:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/fronend:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
 
-      - name: Upload Artifact (env file)
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-tag
-          path: docker_tag.txt
